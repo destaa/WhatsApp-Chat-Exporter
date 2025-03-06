@@ -286,10 +286,10 @@ def get_file_name(contact: str, chat: ChatStore) -> Tuple[str, str]:
     if "@" not in contact and contact not in ("000000000000000", "000000000000001", "ExportedChat"):
         raise ValueError("Unexpected contact format: " + contact)
     phone_number = contact.split('@')[0]
-    if "-" in contact and chat.name is not None:
-        file_name = ""
-    else:
-        file_name = phone_number
+    #if "-" in contact and chat.name is not None:
+        #file_name = ""
+    #else:
+    file_name = phone_number
 
     if chat.name is not None:
         if file_name != "":
@@ -317,21 +317,7 @@ def get_cond_for_empty(enable: bool, jid_field: str, broadcast_field: str) -> st
 
 
 def get_chat_condition(filter: Optional[List[str]], include: bool, columns: List[str], jid: Optional[str] = None, platform: Optional[str] = None) -> str:
-    """Generates a SQL condition for filtering chats based on inclusion or exclusion criteria.
-
-    Args:
-        filter: A list of phone numbers to include or exclude.
-        include: True to include chats that match the filter, False to exclude them.
-        columns: A list of column names to check against the filter.
-        jid: The JID column name (used for group identification).
-        platform: The platform ("android" or "ios") for platform-specific JID queries.
-
-    Returns:
-        A SQL condition string.
-
-    Raises:
-        ValueError: If the column count is invalid or an unsupported platform is provided.
-    """
+    """Generates a SQL condition for filtering chats based on inclusion or exclusion criteria."""
     if filter is not None:
         conditions = []
         if len(columns) < 2 and jid is not None:
@@ -345,14 +331,27 @@ def get_chat_condition(filter: Optional[List[str]], include: bool, columns: List
                 raise ValueError("Only android and ios are supported for argument platform if jid is not None")
         for index, chat in enumerate(filter):
             if include:
-                conditions.append(f"{' OR' if index > 0 else ''} {columns[0]} LIKE '%{chat}%'")
-                if len(columns) > 1:
-                    conditions.append(f" OR ({columns[1]} LIKE '%{chat}%' AND {is_group})")
+                # Jika filter berupa nomor (personal chat)
+                if chat.isnumeric():
+                    # Cocokkan jid yang mengandung filter dan TIDAK mengandung tanda '-' sebelum '@'
+                    conditions.append(
+                        f"{' OR' if index > 0 else ''} (({columns[0]} LIKE '%{chat}@%') AND ({columns[0]} NOT LIKE '%-%@%'))"
+                    )
+                # Jika filter berupa ID grup
+                elif '-' in chat and '@g.us' in chat:
+                    conditions.append(
+                        f"{' OR' if index > 0 else ''} ({columns[0]} = '{chat}' AND {is_group})"
+                    )
+                else:
+                    conditions.append(f"{' OR' if index > 0 else ''} {columns[0]} LIKE '%{chat}%'")
             else:
                 conditions.append(f"{' AND' if index > 0 else ''} {columns[0]} NOT LIKE '%{chat}%'")
                 if len(columns) > 1:
                     conditions.append(f" AND ({columns[1]} NOT LIKE '%{chat}%' AND {is_group})")
-        return f"AND ({' '.join(conditions)})"
+
+        condition_sql = f"AND ({' '.join(conditions)})"
+        #print("Generated SQL Condition:", condition_sql)  # Debugging
+        return condition_sql
     else:
         return ""
 

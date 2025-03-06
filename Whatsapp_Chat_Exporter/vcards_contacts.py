@@ -23,9 +23,19 @@ class ContactsFromVCards:
             if len(number) <= 5:
                 continue
 
-            for chat in filter_chats_by_prefix(chats, number).values():
-                if not hasattr(chat, 'name') or (hasattr(chat, 'name') and chat.name is None):
-                    setattr(chat, 'name', name)
+            #for chat in filter_chats_by_prefix(chats, number).values():
+                #if not hasattr(chat, 'name') or (hasattr(chat, 'name') and chat.name is None):
+                    #setattr(chat, 'name', name)
+            for chat_id, chat in chats.items():
+                basenum = chat_id.split('@')[0]
+                if basenum == number:
+                    chat.name = name
+            for chat in chats.values():
+                for message in chat._messages.values():
+                    if message.sender:
+                        sendernum = message.sender.split('@')[0] if "@" in message.sender else message.sender
+                        if sendernum == number:
+                            message.sender = name
 
 
 def read_vcards_file(vcf_file_path, default_country_code: str):
@@ -43,7 +53,7 @@ def read_vcards_file(vcf_file_path, default_country_code: str):
                 continue
             contact: ExportedContactNumbers = {
                 "full_name": name,
-                "numbers": list(map(lambda tel: tel.value, row.tel_list)),
+                "numbers": list(set(map(lambda tel: tel.value.strip(), row.tel_list))),
             }
             contacts.append(contact)
 
@@ -77,6 +87,7 @@ def normalize_number(number: str, country_code: str):
             return number[len(starting_char):]
 
     # leading zero should be removed
-    if starting_char == '0':
+    if number.startswith('0'):
         number = number[1:]
+    
     return country_code + number  # fall back

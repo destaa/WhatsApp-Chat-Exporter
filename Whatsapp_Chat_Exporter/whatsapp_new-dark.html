@@ -10,11 +10,11 @@
                     extend: {
                         colors: {
                             whatsapp: {
-                                light: '#e7ffdb',
+                                light: '#128C7E',         /* Warna default (tidak dipakai langsung karena kita override untuk dark mode) */
                                 DEFAULT: '#25D366',
-                                dark: '#075E54',
-                                chat: '#efeae2',
-                                'chat-light': '#f0f2f5',
+                                dark: '#202c33',          
+                                chat: '#2a2f32',          /* Warna untuk bubble pesan masuk (kiri) */
+                                'chat-light': '#121b21',   /* Background scrollable chat area */
                             }
                         }
                     }
@@ -22,11 +22,14 @@
             }
         </script>
         <style>
+        /* Background halaman (padding di kanan dan kiri) */
         body, html {
             height: 100%;
             margin: 0;
             padding: 0;
             scroll-behavior: smooth !important;
+            background-color: #0e141a; /* Warna untuk area yang tidak di-scroll (kanan dan kiri) */
+            color: #e5e5e5;
         }
         .chat-list {
             height: calc(100vh - 120px);
@@ -41,22 +44,32 @@
                 height: calc(100vh - 108px);
             }
         }
+        /* Override header style untuk dark mode */
         header {
             position: fixed;
             z-index: 20;
-            border-bottom: 1px solid #e3e6e7; /* Diubah dari 2px ke 1px */
+            border-bottom: 1px solid #3e4e50;
             font-size: 2em;
             font-weight: bolder;
-            background-color: white;
-            padding: 20px 0; /* Disederhanakan */
+            background-color: #202c33;
+            color: #e5e5e5;
+            padding: 20px 0;
         }
+        /* Atur ulang top bar yang memakai bg-whatsapp-dark dan border kiri */
+        .p-3.bg-whatsapp-dark.border-l {
+            border-left: none !important;
+            border-bottom: 1px solid #3e4e50 !important;
+        }
+        /* Update footer untuk dark mode */
         footer {
             margin-top: 10px;
-            border-top: 1px solid #e3e6e7; /* Diubah dari 2px ke 1px */
-            padding: 20px 0; /* Disederhanakan */
+            border-top: 1px solid #3e4e50;
+            background-color: #202c33;
+            color: #e5e5e5;
+            padding: 20px 0;
         }
         article {
-            width: 500px;  /* Diubah dari 430px ke 500px */
+            width: 500px;
             margin: auto;
             z-index:10;
             font-size: 15px;
@@ -121,12 +134,42 @@
             transform: translateY(0);
         }
         .reply-box:active {
-            background-color: rgb(200 202 205 / var(--tw-bg-opacity, 1));
+            background-color:rgb(200 202 205 / var(--tw-bg-opacity, 1));
         }
         .info-box-tooltip {
             --tw-translate-x: -50%;
             transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
         }
+        /* Incoming messages: Override elemen dengan bg-white agar tampil dark */
+        .message-list .bg-white {
+            background-color: #2a2f32 !important;
+            color: #e5e5e5;
+        }
+        .message-list .bg-white p {
+            color: #e5e5e5 !important;
+        }
+        /* Override untuk teks pesan umum (pesan keluar) */
+        .message-list p.message-text {
+            color: #e5e5e5 !important;
+        }
+        /* Override untuk teks waktu dan info kecil */
+        .message-list .text-10px {
+            color: #a0a0a0 !important;
+        }
+        /* --- Aturan khusus untuk dark mode chat keluaran --- */
+        /* Outgoing message bubble (kanan) */
+        .message-list .flex.justify-end > div.bg-whatsapp-light {
+            background-color: #054740 !important;
+        }
+        .message-list .flex.justify-end > div.bg-whatsapp-light p.message-text {
+            color: #e5e5e5 !important;
+        }
+        /* Reply box pada outgoing bubble */
+        .message-list .flex.justify-end > div.bg-whatsapp-light a > div.reply-box {
+            background-color: #0a7a65 !important;
+            border-color: #25D366 !important;
+        }
+        /* --- Akhir aturan khusus --- */
         </style>
         <script>
             function search(event) {
@@ -190,7 +233,7 @@
             </div>
             <div class="flex-1 p-5 message-list">
                 <div class="flex flex-col space-y-2">
-                    <!--Date-->
+                    <!-- Date -->
                     {% set last = {'last': 946688461.001} %}
                     {% for msg in msgs -%}
                         {% if determine_day(last.last, msg.timestamp) is not none  %}
@@ -201,7 +244,7 @@
                             </div>
                             {% if last.update({'last': msg.timestamp}) %}{% endif %}
                         {% endif %}
-                        <!--Actual messages-->
+                        <!-- Actual messages -->
                         {% if msg.from_me == true %}
                         <div class="flex justify-end items-center group" id="{{ msg.key_id }}">
                             <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 relative mr-2">
@@ -222,12 +265,13 @@
                                     </div>
                                 </div>
                             </div>
+                            <!-- Outgoing message bubble -->
                             <div class="bg-whatsapp-light rounded-lg p-2 max-w-[80%] shadow-sm">
                                 {% if msg.reply is not none %}
                                 <a href="#{{msg.reply}}" target="_self" class="no-base">
                                     <div class="mb-2 p-1 bg-whatsapp-chat-light rounded border-l-4 border-whatsapp text-sm reply-box">
                                         <p class="text-whatsapp font-medium text-xs">Replying to</p>
-                                        <p class="text-[#111b21] text-xs truncate">
+                                        <p class="text-white text-xs truncate">
                                             {% if msg.quoted_data is not none %}
                                                 "{{msg.quoted_data}}"
                                             {% else %}
@@ -284,6 +328,7 @@
                         </div>
                         {% else %}
                         <div class="flex justify-start items-center group" id="{{ msg.key_id }}">
+                            <!-- Incoming message bubble -->
                             <div class="bg-white rounded-lg p-2 max-w-[80%] shadow-sm">
                                 {% if msg.reply is not none %}
                                 <a href="#{{msg.reply}}" target="_self" class="no-base">
@@ -349,7 +394,7 @@
                                     </span>
                                     <span class="flex-grow min-w-[4px]"></span>
                                     <span class="flex-shrink-0">{{ msg.time }}</span>
-                                </div>
+                                    </div>
                             </div>
                         </div>
                         {% endif %}

@@ -86,8 +86,8 @@ def messages(db, data, media_folder, timezone_offset, filter_date, filter_chat, 
         _process_single_message(data, content, table_message, timezone_offset)
         
         i += 1
-        if i % 1000 == 0:
-            print(f"Processing messages...({i}/{total_row_number})", end="\r")
+        #if i % 1000 == 0:
+        print(f"Processing messages...({i}/{total_row_number})", end="\r")
         
         # Fetch the next row safely
         content = _fetch_row_safely(content_cursor)
@@ -467,7 +467,7 @@ def _format_message_text(text):
     return text
 
 
-def media(db, data, media_folder, filter_date, filter_chat, filter_empty, separate_media=True):
+def media(db, data, media_folder, filter_date, filter_chat, filter_empty, output, separate_media=True):
     """
     Process WhatsApp media files from the database.
     
@@ -493,15 +493,19 @@ def media(db, data, media_folder, filter_date, filter_chat, filter_empty, separa
     mime = MimeTypes()
     
     # Ensure thumbnails directory exists
-    Path(f"{media_folder}/thumbnails").mkdir(parents=True, exist_ok=True)
+    current_chata = data.get_chat(content["key_remote_jid"])
+    messagea = current_chata.get_message(content["message_row_id"])
+    chata_display_name = slugify(current_chata.name or messagea.sender 
+                            or content["key_remote_jid"].split('@')[0], True)
+    Path(f"{output}/Media_Files-{chata_display_name}/thumbnails").mkdir(parents=True, exist_ok=True)
     
     i = 0
     while content is not None:
-        _process_single_media(data, content, media_folder, mime, separate_media)
+        _process_single_media(data, content, output, media_folder, mime, separate_media)
         
         i += 1
-        if i % 100 == 0:
-            print(f"Processing media...({i}/{total_row_number})", end="\r")
+        #if i % 100 == 0:
+        print(f"Processing media...({i}/{total_row_number})", end="\r")
         
         content = content_cursor.fetchone()
     
@@ -623,7 +627,7 @@ def _get_media_cursor_new(cursor, filter_empty, filter_date, filter_chat):
     return cursor
 
 
-def _process_single_media(data, content, media_folder, mime, separate_media):
+def _process_single_media(data, content, output, media_folder, mime, separate_media):
     """Process a single media file."""
     file_path = f"{media_folder}/{content['file_path']}"
     current_chat = data.get_chat(content["key_remote_jid"])
@@ -646,13 +650,15 @@ def _process_single_media(data, content, media_folder, mime, separate_media):
         # Copy media to separate folder if needed
         if separate_media:
             chat_display_name = slugify(current_chat.name or message.sender 
-                                     or content["key_remote_jid"].split('@')[0], True)
+                                    or content["key_remote_jid"].split('@')[0], True)
+            global var_display_name
+            var_display_name = chat_display_name
             current_filename = file_path.split("/")[-1]
-            new_folder = os.path.join(media_folder, "separated", chat_display_name)
+            new_folder = os.path.join(output, f"Media_Files-{chat_display_name}")
             Path(new_folder).mkdir(parents=True, exist_ok=True)
             new_path = os.path.join(new_folder, current_filename)
             shutil.copy2(file_path, new_path)
-            message.data = new_path
+            message.data = os.path.join(f"Media_Files-{chat_display_name}", current_filename)
     else:
         message.data = "The media is missing"
         message.mime = "media"
@@ -660,14 +666,13 @@ def _process_single_media(data, content, media_folder, mime, separate_media):
     
     # Handle thumbnail
     if content["thumbnail"] is not None:
-        thumb_path = f"{media_folder}/thumbnails/{b64decode(content['file_hash']).hex()}.png"
+        thumb_path = f"{output}/Media_Files-{var_display_name}/thumbnails/{b64decode(content['file_hash']).hex()}.png"
         if not os.path.isfile(thumb_path):
             with open(thumb_path, "wb") as f:
                 f.write(content["thumbnail"])
-        message.thumb = thumb_path
-
-
-def vcard(db, data, media_folder, filter_date, filter_chat, filter_empty):
+        message.thumb = f"Media_Files-{var_display_name}/thumbnails/{b64decode(content['file_hash']).hex()}.png"
+        
+def vcard(db, data, output, media_folder, filter_date, filter_chat, filter_empty):
     """Process vCard data from WhatsApp database and save to files."""
     c = db.cursor()
     try:
@@ -679,7 +684,7 @@ def vcard(db, data, media_folder, filter_date, filter_chat, filter_empty):
     print(f"\nProcessing vCards...(0/{total_row_number})", end="\r")
     
     # Create vCards directory if it doesn't exist
-    path = os.path.join(media_folder, "vCards")
+    path = os.path.join(output, f"Media_Files-{var_display_name}", "vCards")
     Path(path).mkdir(parents=True, exist_ok=True)
     
     for index, row in enumerate(rows):
@@ -762,7 +767,7 @@ def _process_vcard_row(row, path, data):
             
     message = data.get_chat(row["key_remote_jid"]).get_message(row["message_row_id"])
     message.data = "This media include the following vCard file(s):<br>" \
-        f'<a href="{htmle(file_path)}">{htmle(media_name)}</a>'
+        f'<a href="{htmle(os.path.join(os.path.join(f"Media_Files-{var_display_name}", "vCards"), f"{file_name}.vcf"))}">{htmle(media_name)}</a>'
     message.mime = "text/x-vcard"
     message.meta = True
     message.safe = True

@@ -148,7 +148,7 @@ def setup_argument_parser() -> ArgumentParser:
         help="Do not render avatar in HTML output"
     )
     html_group.add_argument(
-        "--experimental-new-theme", dest="whatsapp_theme", default=False, action='store_true',
+        "-theme", "--custom-whatsapp-theme", dest="whatsapp_theme", nargs="?", const="dark", choices=["light", "dark"], default=False,
         help="Use the newly designed WhatsApp-alike theme"
     )
     html_group.add_argument(
@@ -163,8 +163,8 @@ def setup_argument_parser() -> ArgumentParser:
         help="Move the media directory to output directory if the flag is set, otherwise copy it"
     )
     media_group.add_argument(
-        "--create-separated-media", dest="separate_media", default=False, action='store_true',
-        help="Create a copy of the media seperated per chat in <MEDIA>/separated/ directory"
+        "--copy-media-files", dest="separate_media", default=False, action='store_true',
+        help="Copy media per chat in <OUTPUT>/Media_Files-{chatname}/ directory"
     )
     
     # Filtering options
@@ -233,7 +233,10 @@ def setup_argument_parser() -> ArgumentParser:
         "--max-bruteforce-worker", dest="max_bruteforce_worker", default=10, type=int,
         help="Specify the maximum number of worker for bruteforce decryption."
     )
-    
+    misc_group.add_argument(
+        "-lgc", "--list-group-chats", dest="list_chats", action="store_true",
+        help="List valid group chats available for export (only for msgstore.db)."
+    )
     return parser
 
 
@@ -279,26 +282,65 @@ def validate_args(parser: ArgumentParser, args) -> None:
     
     # Crypt15 key validation
     if args.key is None and args.backup is not None and args.backup.endswith("crypt15"):
-        args.key = getpass("Enter your encryption key: ")
-    
+        args.key = getpass("Enter your decryption key: ")
+        
+    if args.list_chats and (args.key is None or args.backup is None):
+        parser.error("When (-lgc, --list-group-chats) is enabled, you must also set (-k, --key) and (-b, --backup)")
+        
     # Theme validation
     if args.whatsapp_theme:
-        args.template = "whatsapp_new.html"
+        if args.whatsapp_theme == "dark":
+            args.template = "whatsapp_new-dark.html"
+        else:
+            args.template = "whatsapp_new.html"
     
     # Chat filter validation
     if args.filter_chat_include is not None and args.filter_chat_exclude is not None:
         parser.error("Chat inclusion and exclusion filters cannot be used together.")
     
+    if args.separate_media and args.media is None:
+        parser.error("When --create-separated-media is enabled, you must also set (-m, --media)")
+    
     validate_chat_filters(parser, args.filter_chat_include)
     validate_chat_filters(parser, args.filter_chat_exclude)
 
+def list_valid_groups(args):
+    db_path = args.db if args.db else "msgstore.db"
+    with sqlite3.connect(db_path) as db:
+        db.row_factory = sqlite3.Row
+        c = db.cursor()
+
+        try:
+            c.execute("""
+                SELECT
+                    jid.raw_string AS group_jid,
+                    chat.subject   AS group_name
+                FROM chat
+                JOIN jid
+                    ON chat.jid_row_id = jid._id
+                WHERE jid.server = 'g.us'
+                AND chat.subject IS NOT NULL
+            """)
+            rows = c.fetchall()
+            
+            if not rows:
+                print("Tidak ada grup yang ditemukan dalam database.")
+                return
+
+            print("List valid groups (ID - Subject):")
+            for row in rows:
+                group_jid = row["group_jid"]
+                group_name = row["group_name"]
+                print(f"{group_jid.split('@g.us')[0]} - {group_name}")
+
+        except sqlite3.OperationalError as e:
+            print(f"An error occured while reading database: {e}")
 
 def validate_chat_filters(parser: ArgumentParser, chat_filter: Optional[List[str]]) -> None:
-    """Validate chat filters to ensure they contain only phone numbers."""
     if chat_filter is not None:
         for chat in chat_filter:
-            if not chat.isnumeric():
-                parser.error("Enter a phone number in the chat filter. See https://wts.knugi.dev/docs?dest=chat")
+            if not (chat.isnumeric() or ('-' in chat and chat.split('-')[0].isnumeric())):
+                parser.error("Enter a valid phone number or group id (format: groupid-groupname) in the chat filter. See https://wts.knugi.dev/docs?dest=chat")
 
 
 def process_date_filter(parser: ArgumentParser, args) -> None:
@@ -385,7 +427,10 @@ def decrypt_android_backup(args) -> int:
     if not os.path.isfile(args.key) and all(char in string.hexdigits for char in args.key.replace(" ", "")):
         key = bytes.fromhex(args.key.replace(" ", ""))
     else:
-        key = open(args.key, "rb")
+        try:
+            key = open(args.key, "rb")
+        except:
+            return 3
         keyfile_stream = True
     
     # Read backup
@@ -436,6 +481,9 @@ def handle_decrypt_error(error: int) -> None:
         print("Failed when decompressing the decrypted backup. "
               "Possibly incorrect offsets used in decryption.")
         exit(4)
+    elif error == 3:
+        print("Invalid decryption key.")
+        exit(5)
     else:
         print("Unknown error occurred.", error)
         exit(5)
@@ -484,12 +532,12 @@ def process_messages(args, data: ChatCollection) -> None:
         # Process media
         message_handler.media(
             db, data, args.media, args.filter_date, 
-            filter_chat, args.filter_empty, args.separate_media
+            filter_chat, args.filter_empty, args.output, args.separate_media
         )
         
         # Process vcards
         message_handler.vcard(
-            db, data, args.media, args.filter_date, 
+            db, data, args.output, args.media, args.filter_date, 
             filter_chat, args.filter_empty
         )
         
@@ -650,14 +698,15 @@ def main():
     validate_args(parser, args)
     
     # Create output directory if it doesn't exist
-    os.makedirs(args.output, exist_ok=True)
+    if not args.list_chats:
+        os.makedirs(args.output, exist_ok=True)
     
     # Initialize data collection
     data = ChatCollection()
     
     # Set up contact store for vCard enrichment if needed
     contact_store = setup_contact_store(args)
-    
+       
     if args.import_json:
         # Import from JSON
         import_from_json(args.json, data)
@@ -693,6 +742,15 @@ def main():
                 error = decrypt_android_backup(args)
                 if error != 0:
                     handle_decrypt_error(error)
+                    
+            if getattr(args, "list_chats", False):
+                list_valid_groups(args)
+                if os.path.exists("msgstore.db"):
+                    os.remove("msgstore.db")
+                if os.path.exists("wa.db"):
+                    os.remove("wa.db")
+                exit()
+       
         elif args.ios:
             # Set up identifiers based on business flag
             if args.business:
@@ -730,4 +788,9 @@ def main():
         # Handle media directory
         handle_media_directory(args)
 
+        if os.path.exists("msgstore.db"):
+            os.remove("msgstore.db")
+        if os.path.exists("wa.db"):
+            os.remove("wa.db")
+        
         print("Everything is done!")
