@@ -270,7 +270,7 @@ def sanitize_filename(file_name: str) -> str:
     return "".join(x for x in file_name if x.isalnum() or x in "- ")
 
 
-def get_file_name(contact: str, chat: ChatStore) -> Tuple[str, str]:
+def get_file_name(var_display_name, contact: str, chat: ChatStore) -> Tuple[str, str]:
     """Generates a sanitized filename and contact name for a chat.
 
     Args:
@@ -283,7 +283,7 @@ def get_file_name(contact: str, chat: ChatStore) -> Tuple[str, str]:
     Raises:
         ValueError: If the contact format is unexpected.
     """
-    if "@" not in contact and contact not in ("000000000000000", "000000000000001", "ExportedChat"):
+    if "@" not in contact and contact not in (f"{var_display_name}-WhatsApp Calls", "000000000000000", "000000000000001", "ExportedChat"):
         raise ValueError("Unexpected contact format: " + contact)
     phone_number = contact.split('@')[0]
     #if "-" in contact and chat.name is not None:

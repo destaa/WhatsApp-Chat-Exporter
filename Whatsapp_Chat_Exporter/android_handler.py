@@ -14,6 +14,7 @@ from Whatsapp_Chat_Exporter.utility import rendering, get_file_name, setup_templ
 from Whatsapp_Chat_Exporter.utility import get_status_location, convert_time_unit, determine_metadata
 from Whatsapp_Chat_Exporter.utility import get_chat_condition, slugify, bytes_to_readable
 
+global_vars = {"var_display_name": "placeholder"}
 
 def contacts(db, data, enrich_from_vcards):
     """
@@ -493,11 +494,12 @@ def media(db, data, media_folder, filter_date, filter_chat, filter_empty, output
     mime = MimeTypes()
     
     # Ensure thumbnails directory exists
-    current_chata = data.get_chat(content["key_remote_jid"])
-    messagea = current_chata.get_message(content["message_row_id"])
-    chata_display_name = slugify(current_chata.name or messagea.sender 
+    current_chat = data.get_chat(content["key_remote_jid"])
+    message = current_chat.get_message(content["message_row_id"])
+    chat_display_name = slugify(current_chat.name or message.sender 
                             or content["key_remote_jid"].split('@')[0], True)
-    Path(f"{output}/Media_Files-{chata_display_name}/thumbnails").mkdir(parents=True, exist_ok=True)
+    global_vars['var_display_name'] = chat_display_name
+    Path(f"{output}/Media_Files-{global_vars['var_display_name']}/thumbnails").mkdir(parents=True, exist_ok=True)
     
     i = 0
     while content is not None:
@@ -649,16 +651,12 @@ def _process_single_media(data, content, output, media_folder, mime, separate_me
         
         # Copy media to separate folder if needed
         if separate_media:
-            chat_display_name = slugify(current_chat.name or message.sender 
-                                    or content["key_remote_jid"].split('@')[0], True)
-            global var_display_name
-            var_display_name = chat_display_name
             current_filename = file_path.split("/")[-1]
-            new_folder = os.path.join(output, f"Media_Files-{chat_display_name}")
+            new_folder = os.path.join(output, f"Media_Files-{global_vars['var_display_name']}")
             Path(new_folder).mkdir(parents=True, exist_ok=True)
             new_path = os.path.join(new_folder, current_filename)
             shutil.copy2(file_path, new_path)
-            message.data = os.path.join(f"Media_Files-{chat_display_name}", current_filename)
+            message.data = os.path.join(f"Media_Files-{global_vars['var_display_name']}", current_filename)
     else:
         message.data = "The media is missing"
         message.mime = "media"
@@ -666,11 +664,11 @@ def _process_single_media(data, content, output, media_folder, mime, separate_me
     
     # Handle thumbnail
     if content["thumbnail"] is not None:
-        thumb_path = f"{output}/Media_Files-{var_display_name}/thumbnails/{b64decode(content['file_hash']).hex()}.png"
+        thumb_path = f"{output}/Media_Files-{global_vars['var_display_name']}/thumbnails/{b64decode(content['file_hash']).hex()}.png"
         if not os.path.isfile(thumb_path):
             with open(thumb_path, "wb") as f:
                 f.write(content["thumbnail"])
-        message.thumb = f"Media_Files-{var_display_name}/thumbnails/{b64decode(content['file_hash']).hex()}.png"
+        message.thumb = f"Media_Files-{global_vars['var_display_name']}/thumbnails/{b64decode(content['file_hash']).hex()}.png"
         
 def vcard(db, data, output, media_folder, filter_date, filter_chat, filter_empty):
     """Process vCard data from WhatsApp database and save to files."""
@@ -684,7 +682,7 @@ def vcard(db, data, output, media_folder, filter_date, filter_chat, filter_empty
     print(f"\nProcessing vCards...(0/{total_row_number})", end="\r")
     
     # Create vCards directory if it doesn't exist
-    path = os.path.join(output, f"Media_Files-{var_display_name}", "vCards")
+    path = os.path.join(output, f"Media_Files-{global_vars['var_display_name']}", "vCards")
     Path(path).mkdir(parents=True, exist_ok=True)
     
     for index, row in enumerate(rows):
@@ -767,7 +765,7 @@ def _process_vcard_row(row, path, data):
             
     message = data.get_chat(row["key_remote_jid"]).get_message(row["message_row_id"])
     message.data = "This media include the following vCard file(s):<br>" \
-        f'<a href="{htmle(os.path.join(os.path.join(f"Media_Files-{var_display_name}", "vCards"), f"{file_name}.vcf"))}">{htmle(media_name)}</a>'
+        f'''<a href="{htmle(os.path.join(os.path.join(f"Media_Files-{global_vars['var_display_name']}", "vCards"), f"{file_name}.vcf"))}">{htmle(media_name)}</a>'''
     message.mime = "text/x-vcard"
     message.meta = True
     message.safe = True
@@ -788,7 +786,7 @@ def calls(db, data, timezone_offset, filter_chat):
     calls_data = _fetch_calls_data(c, filter_chat)
     
     # Create a chat store for all calls
-    chat = ChatStore(Device.ANDROID, "WhatsApp Calls")
+    chat = ChatStore(Device.ANDROID)
     
     # Process each call
     content = calls_data.fetchone()
@@ -797,7 +795,7 @@ def calls(db, data, timezone_offset, filter_chat):
         content = calls_data.fetchone()
         
     # Add the calls chat to the data
-    data.add_chat("000000000000000", chat)
+    data.add_chat(f"{global_vars['var_display_name']}-WhatsApp Calls", chat)
 
 
 def _get_calls_count(c, filter_chat):
@@ -936,7 +934,7 @@ def create_html(
             # Skip empty chats
             continue
             
-        safe_file_name, name = get_file_name(contact, current_chat)
+        safe_file_name, name = get_file_name(global_vars['var_display_name'], contact, current_chat)
 
         if maximum_size is not None:
             _generate_paginated_chat(
