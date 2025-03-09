@@ -27,6 +27,8 @@
             margin: 0;
             padding: 0;
             scroll-behavior: smooth !important;
+            background-color: #e5e5e5;
+            color: #0e141a;
         }
         .chat-list {
             height: calc(100vh - 120px);
@@ -44,19 +46,26 @@
         header {
             position: fixed;
             z-index: 20;
-            border-bottom: 1px solid #e3e6e7; /* Diubah dari 2px ke 1px */
+            border-bottom: 1px solid #e3e6e7;
             font-size: 2em;
             font-weight: bolder;
-            background-color: white;
-            padding: 20px 0; /* Disederhanakan */
+            background-color: #e5e5e5;
+            color: #202c33;
+            padding: 20px 0;
+        }
+        .p-3.bg-whatsapp-dark.border-l {
+            border-left: none !important;
+            border-bottom: 1px solid #3e4e50 !important;
         }
         footer {
             margin-top: 10px;
-            border-top: 1px solid #e3e6e7; /* Diubah dari 2px ke 1px */
-            padding: 20px 0; /* Disederhanakan */
+            border-top: 1px solid #3e4e50;
+            background-color: transparent;
+            color: #202c33;
+            padding: 20px 20px;
         }
         article {
-            width: 500px;  /* Diubah dari 430px ke 500px */
+            width: 500px;
             margin: auto;
             z-index:10;
             font-size: 15px;
@@ -121,7 +130,7 @@
             transform: translateY(0);
         }
         .reply-box:active {
-            background-color: rgb(200 202 205 / var(--tw-bg-opacity, 1));
+            background-color:rgb(200 202 205 / var(--tw-bg-opacity, 1));
         }
         .info-box-tooltip {
             --tw-translate-x: -50%;
@@ -190,7 +199,7 @@
             </div>
             <div class="flex-1 p-5 message-list">
                 <div class="flex flex-col space-y-2">
-                    <!--Date-->
+                    <!-- Date -->
                     {% set last = {'last': 946688461.001} %}
                     {% for msg in msgs -%}
                         {% if determine_day(last.last, msg.timestamp) is not none  %}
@@ -201,157 +210,242 @@
                             </div>
                             {% if last.update({'last': msg.timestamp}) %}{% endif %}
                         {% endif %}
-                        <!--Actual messages-->
+                        <!-- Actual messages -->
                         {% if msg.from_me == true %}
-                        <div class="flex justify-end items-center group" id="{{ msg.key_id }}">
-                            <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 relative mr-2">
-                                <div class="relative">
-                                    <div class="relative group/tooltip">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#8696a0] hover:text-[#54656f] cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <use href="#info-icon"></use>
-                                        </svg>
-                                        <div class="absolute bottom-full info-box-tooltip mb-2 hidden group-hover/tooltip:block z-50">
-                                            <div class="bg-black text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                                Delivered at {{msg.received_timestamp or 'unknown'}}
-                                                {% if msg.read_timestamp is not none %}
-                                                <br>Read at {{ msg.read_timestamp }}
-                                                {% endif %}
+                            {% if msg.meta == true or (msg.media == false and msg.data is none) %}
+                                {% if msg.data == 'The media is missing' or msg.data == 'Message deleted' or (msg.data and msg.data.startswith("This media include the following")) or (msg.data and msg.data.startswith("A voice call")) or (msg.data and msg.data.startswith("A video call")) %}
+                                <!-- Meta exception: render inside outgoing bubble -->
+                                    <div class="flex justify-end items-center group" id="{{ msg.key_id }}">
+                                        <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 relative mr-2">
+                                            <div class="relative">
+                                                <div class="relative group/tooltip">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#8696a0] hover:text-[#54656f] cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <use href="#info-icon"></use>
+                                                    </svg>
+                                                    <div class="absolute bottom-full info-box-tooltip mb-2 hidden group-hover/tooltip:block z-50">
+                                                        <div class="bg-black text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                                            Delivered at {{msg.received_timestamp or 'unknown'}}
+                                                            {% if msg.read_timestamp is not none %}
+                                                            <br>Read at {{ msg.read_timestamp }}
+                                                            {% endif %}
+                                                        </div>
+                                                        <div class="absolute top-full right-3 -mt-1 border-4 border-transparent border-t-black"></div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="absolute top-full right-3 -mt-1 border-4 border-transparent border-t-black"></div>
+                                        </div>
+                                        <div class="bg-whatsapp-light rounded-lg p-2 max-w-[80%] shadow-sm">
+                                            <p class="text-[#111b21] text-sm message-text">
+                                                <div class="bg-[#FFF3C5] rounded-lg px-3 py-2 text-sm text-[#856404] flex items-center justify-center w-full mb-2">
+                                                    {% if msg.safe %}
+                                                        {{ msg.data | safe or 'Not supported WhatsApp internal message' }}
+                                                    {% else %}
+                                                        {{ msg.data or 'Not supported WhatsApp internal message' }}
+                                                    {% endif %}
+                                                </div>
+                                            </p>
+                                                {% if msg.caption is not none %}
+                                                    <p>{{ msg.caption | urlize(none, true, '_blank') }}</p>
+                                                {% endif %}
+                                            <p class="text-[10px] text-[#667781] text-right mt-1">{{ msg.time }}</p>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            <div class="bg-whatsapp-light rounded-lg p-2 max-w-[80%] shadow-sm">
-                                {% if msg.reply is not none %}
-                                <a href="#{{msg.reply}}" target="_self" class="no-base">
-                                    <div class="mb-2 p-1 bg-whatsapp-chat-light rounded border-l-4 border-whatsapp text-sm reply-box">
-                                        <p class="text-whatsapp font-medium text-xs">Replying to</p>
-                                        <p class="text-[#111b21] text-xs truncate">
-                                            {% if msg.quoted_data is not none %}
-                                                "{{msg.quoted_data}}"
+                                {% else %}
+                                <!-- Meta non-exception: render as bubble -->
+                                    <div class="flex justify-center mb-2" id="{{ msg.key_id }}">
+                                        <div class="bg-[#e1f2fb] rounded-lg px-2 py-1 text-xs text-[#54656f]">
+                                            {% if msg.safe %}
+                                                {{ msg.data | safe or 'Not supported WhatsApp internal message' }}
                                             {% else %}
-                                                this message
+                                                {{ msg.data or 'Not supported WhatsApp internal message' }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% if msg.caption is not none %}
+                                        <p>{{ msg.caption | urlize(none, true, '_blank') }}</p>
+                                    {% endif %}
+                                {% endif %}
+                            {% else %}
+                            <!-- Normal outgoing message -->
+                                <div class="flex justify-end items-center group" id="{{ msg.key_id }}">
+                                    <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 relative mr-2">
+                                        <div class="relative">
+                                            <div class="relative group/tooltip">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[#8696a0] hover:text-[#54656f] cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <use href="#info-icon"></use>
+                                                </svg>
+                                                <div class="absolute bottom-full info-box-tooltip mb-2 hidden group-hover/tooltip:block z-50">
+                                                    <div class="bg-black text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                                        Delivered at {{msg.received_timestamp or 'unknown'}}
+                                                        {% if msg.read_timestamp is not none %}
+                                                        <br>Read at {{ msg.read_timestamp }}
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="absolute top-full right-3 -mt-1 border-4 border-transparent border-t-black"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-whatsapp-light rounded-lg p-2 max-w-[80%] shadow-sm">
+                                        {% if msg.reply is not none %}
+                                            <a href="#{{msg.reply}}" target="_self" class="no-base">
+                                                <div class="mb-2 p-1 bg-whatsapp-chat-light rounded border-l-4 border-whatsapp text-sm reply-box">
+                                                    <p class="text-whatsapp font-medium text-xs">Replying to</p>
+                                                    <p class="text-[#111b21] text-xs truncate">
+                                                        {% if msg.quoted_data is not none %}
+                                                            "{{msg.quoted_data}}"
+                                                        {% else %}
+                                                            this message
+                                                        {% endif %}
+                                                    </p>
+                                                </div>
+                                            </a>
+                                        {% endif %}
+                                        <p class="text-[#111b21] text-sm message-text">
+                                            {% if msg.media == false %}
+                                                {{ msg.data | sanitize_except() | urlize(none, true, '_blank') }}
+                                            {% else %}
+                                                {% if "image/" in msg.mime %}
+                                                    <a href="{{ msg.data }}">
+                                                        <img src="{{ msg.thumb if msg.thumb is not none else msg.data }}" {{ 'class="sticker"' | safe if msg.sticker }} loading="lazy"/>
+                                                    </a>
+                                                {% elif "audio/" in msg.mime %}
+                                                    <audio controls="controls" autobuffer="autobuffer">
+                                                        <source src="{{ msg.data }}" />
+                                                    </audio>
+                                                {% elif "video/" in msg.mime %}
+                                                    <video class="lazy" autobuffer {% if msg.message_type|int == 13 or msg.message_type|int == 11 %}autoplay muted loop playsinline{% else %}controls{% endif %}>
+                                                        <source type="{{ msg.mime }}" data-src="{{ msg.data }}" />
+                                                    </video>
+                                                {% elif "/" in msg.mime %}
+                                                    Document: <a href="./{{ msg.data }}">{{ msg.data.split('/')[-1] }}</a>
+                                                {% else %}
+                                                    {% filter escape %}{{ msg.data }}{% endfilter %}
+                                                {% endif %}
                                             {% endif %}
                                         </p>
-                                    </div>
-                                </a>
-                                {% endif %}
-                                <p class="text-[#111b21] text-sm message-text">
-                                    {% if msg.meta == true or msg.media == false and msg.data is none %}     
-                                        <div class="flex justify-center mb-2">
-                                            <div class="bg-[#FFF3C5] rounded-lg px-3 py-2 text-sm text-[#856404] flex items-center">
-                                                {% if msg.safe %}
-                                                    {{ msg.data | safe or 'Not supported WhatsApp internal message' }}
-                                                {% else %}
-                                                    {{ msg.data or 'Not supported WhatsApp internal message' }}
-                                                {% endif %}
-                                            </div>
-                                        </div>
                                         {% if msg.caption is not none %}
                                             <p>{{ msg.caption | urlize(none, true, '_blank') }}</p>
                                         {% endif %}
-                                    {% else %}
-                                        {% if msg.media == false %}
-                                            {{ msg.data | sanitize_except() | urlize(none, true, '_blank') }}
-                                        {% else %}
-                                            {% if "image/" in msg.mime %}
-                                                <a href="{{ msg.data }}">
-                                                    <img src="{{ msg.thumb if msg.thumb is not none else msg.data }}" {{ 'class="sticker"' | safe if msg.sticker }} loading="lazy"/>
-                                                </a>
-                                            {% elif "audio/" in msg.mime %}
-                                                <audio controls="controls" autobuffer="autobuffer">
-                                                    <source src="{{ msg.data }}" />
-                                                </audio>
-                                            {% elif "video/" in msg.mime %}
-                                                <video class="lazy" autobuffer {% if msg.message_type|int == 13 or msg.message_type|int == 11 %}autoplay muted loop playsinline{%else%}controls{% endif %}>
-                                                    <source type="{{ msg.mime }}" data-src="{{ msg.data }}" />
-                                                </video>
-                                            {% elif "/" in msg.mime %}
-                                                <!--The file cannot be displayed here, however it should be located at <a href="./{{ msg.data }}">here</a>-->
-                                                <a href="./{{ msg.data }}">{{ msg.data.split('/')[-1] }}</a>
-                                            {% else %}
-                                                {% filter escape %}{{ msg.data }}{% endfilter %}
-                                            {% endif %}
-                                            {% if msg.caption is not none %}
-                                                {{ msg.caption | urlize(none, true, '_blank') }}
-                                            {% endif %}
-                                        {% endif %}
-                                    {% endif %}
-                                </p>
-                                <p class="text-[10px] text-[#667781] text-right mt-1">{{ msg.time }}</p>
-                            </div>
-                        </div>
+                                        <p class="text-[10px] text-[#667781] text-right mt-1">{{ msg.time }}</p>
+                                    </div>
+                                </div>
+                            {% endif %}
                         {% else %}
-                        <div class="flex justify-start items-center group" id="{{ msg.key_id }}">
-                            <div class="bg-white rounded-lg p-2 max-w-[80%] shadow-sm">
-                                {% if msg.reply is not none %}
-                                <a href="#{{msg.reply}}" target="_self" class="no-base">
-                                    <div class="mb-2 p-1 bg-whatsapp-chat-light rounded border-l-4 border-whatsapp text-sm reply-box">
-                                        <p class="text-whatsapp font-medium text-xs">Replying to</p>
-                                        <p class="text-[#808080] text-xs truncate">
-                                            {% if msg.quoted_data is not none %}
-                                                {{msg.quoted_data}}
-                                            {% else %}
-                                                this message
+                        <!-- Incoming messages -->
+                            {% if msg.meta == true or (msg.media == false and msg.data is none) %}
+                                {% if msg.data == 'The media is missing' or msg.data == 'Message deleted' or (msg.data and msg.data.startswith("This media include the following")) or (msg.data and msg.data.startswith("A voice call")) or (msg.data and msg.data.startswith("A video call")) %}
+                                <!-- Meta exception: render inside incoming bubble -->
+                                    <div class="flex justify-start items-center group" id="{{ msg.key_id }}">
+                                        <div class="bg-white rounded-lg p-2 max-w-[80%] shadow-sm">
+                                            {% if msg.reply is not none %}
+                                                <a href="#{{msg.reply}}" target="_self" class="no-base">
+                                                    <div class="mb-2 p-1 bg-whatsapp-chat-light rounded border-l-4 border-whatsapp text-sm reply-box">
+                                                        <p class="text-whatsapp font-medium text-xs">Replying to</p>
+                                                        <p class="text-[#808080] text-xs truncate">
+                                                            {% if msg.quoted_data is not none %}
+                                                                {{msg.quoted_data}}
+                                                            {% else %}
+                                                                this message
+                                                            {% endif %}
+                                                        </p>
+                                                    </div>
+                                                </a>
                                             {% endif %}
-                                        </p>
-                                    </div>
-                                </a>
-                                {% endif %}
-                                <p class="text-[#111b21] text-sm">
-                                    {% if msg.meta == true or msg.media == false and msg.data is none %}
-                                        <div class="flex justify-center mb-2">
-                                            <div class="bg-[#FFF3C5] rounded-lg px-3 py-2 text-sm text-[#856404] flex items-center">
-                                                {% if msg.safe %}
-                                                    {{ msg.data | safe or 'Not supported WhatsApp internal message' }}
-                                                {% else %}
-                                                    {{ msg.data or 'Not supported WhatsApp internal message' }}
+                                            <p class="text-[#111b21] text-sm">
+                                                <div class="bg-[#FFF3C5] rounded-lg px-3 py-2 text-sm text-[#856404] flex items-center justify-center w-full mb-2">
+                                                    {% if msg.safe %}
+                                                        {{ msg.data | safe or 'Not supported WhatsApp internal message' }}
+                                                    {% else %}
+                                                        {{ msg.data or 'Not supported WhatsApp internal message' }}
+                                                    {% endif %}
+                                                </div>
+                                            </p>
+                                                {% if msg.caption is not none %}
+                                                    <p>{{ msg.caption | urlize(none, true, '_blank') }}</p>
                                                 {% endif %}
+                                            <div class="flex items-baseline text-[10px] text-[#667781] mt-1 gap-2">
+                                                <span class="flex-shrink-0">
+                                                    {% if msg.sender is not none %}
+                                                        {{ msg.sender }}
+                                                    {% endif %}
+                                                </span>
+                                                <span class="flex-grow min-w-[4px]"></span>
+                                                <span class="flex-shrink-0">{{ msg.time }}</span>
                                             </div>
                                         </div>
+                                    </div>
+                                {% else %}
+                                <!-- Meta non-exception: render as bubble -->
+                                    <div class="flex justify-center mb-2" id="{{ msg.key_id }}">
+                                        <div class="bg-[#e1f2fb] rounded-lg px-2 py-1 text-xs text-[#54656f]">
+                                            {% if msg.safe %}
+                                                {{ msg.data | safe or 'Not supported WhatsApp internal message' }}
+                                            {% else %}
+                                                {{ msg.data or 'Not supported WhatsApp internal message' }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% if msg.caption is not none %}
+                                        <p>{{ msg.caption | urlize(none, true, '_blank') }}</p>
+                                    {% endif %}
+                                {% endif %}
+                            {% else %}
+                            <!-- Normal incoming message -->
+                                <div class="flex justify-start items-center group" id="{{ msg.key_id }}">
+                                    <div class="bg-white rounded-lg p-2 max-w-[80%] shadow-sm">
+                                        {% if msg.reply is not none %}
+                                            <a href="#{{msg.reply}}" target="_self" class="no-base">
+                                                <div class="mb-2 p-1 bg-whatsapp-chat-light rounded border-l-4 border-whatsapp text-sm reply-box">
+                                                    <p class="text-whatsapp font-medium text-xs">Replying to</p>
+                                                    <p class="text-[#808080] text-xs truncate">
+                                                        {% if msg.quoted_data is not none %}
+                                                            {{msg.quoted_data}}
+                                                        {% else %}
+                                                            this message
+                                                        {% endif %}
+                                                    </p>
+                                                </div>
+                                            </a>
+                                        {% endif %}
+                                        <p class="text-[#111b21] text-sm">
+                                            {% if msg.media == false %}
+                                                {{ msg.data | sanitize_except() | urlize(none, true, '_blank') }}
+                                            {% else %}
+                                                {% if "image/" in msg.mime %}
+                                                    <a href="{{ msg.data }}">
+                                                        <img src="{{ msg.thumb if msg.thumb is not none else msg.data }}" {{ 'class="sticker"' | safe if msg.sticker }} loading="lazy"/>
+                                                    </a>
+                                                {% elif "audio/" in msg.mime %}
+                                                    <audio controls="controls" autobuffer="autobuffer">
+                                                        <source src="{{ msg.data }}" />
+                                                    </audio>
+                                                {% elif "video/" in msg.mime %}
+                                                    <video class="lazy" autobuffer {% if msg.message_type|int == 13 or msg.message_type|int == 11 %}autoplay muted loop playsinline{% else %}controls{% endif %}>
+                                                        <source type="{{ msg.mime }}" data-src="{{ msg.data }}" />
+                                                    </video>
+                                                {% elif "/" in msg.mime %}
+                                                    Document: <a href="./{{ msg.data }}">{{ msg.data.split('/')[-1] }}</a>
+                                                {% else %}
+                                                    {% filter escape %}{{ msg.data }}{% endfilter %}
+                                                {% endif %}
+                                            {% endif %}
+                                        </p>
                                         {% if msg.caption is not none %}
                                             <p>{{ msg.caption | urlize(none, true, '_blank') }}</p>
                                         {% endif %}
-                                    {% else %}
-                                        {% if msg.media == false %}
-                                            {{ msg.data | sanitize_except() | urlize(none, true, '_blank') }}
-                                        {% else %}
-                                            {% if "image/" in msg.mime %}
-                                                <a href="{{ msg.data }}">
-                                                    <img src="{{ msg.thumb if msg.thumb is not none else msg.data }}" {{ 'class="sticker"' | safe if msg.sticker }} loading="lazy"/>
-                                                </a>
-                                            {% elif "audio/" in msg.mime %}
-                                                <audio controls="controls" autobuffer="autobuffer">
-                                                    <source src="{{ msg.data }}" />
-                                                </audio>
-                                            {% elif "video/" in msg.mime %}
-                                                <video class="lazy" autobuffer {% if msg.message_type|int == 13 or msg.message_type|int == 11 %}autoplay muted loop playsinline{%else%}controls{% endif %}>
-                                                    <source type="{{ msg.mime }}" data-src="{{ msg.data }}" />
-                                                </video>
-                                            {% elif "/" in msg.mime %}
-                                                <!--The file cannot be displayed here, however it should be located at <a href="./{{ msg.data }}">here</a>-->
-                                                <a href="./{{ msg.data }}">{{ msg.data.split('/')[-1] }}</a>
-                                            {% else %}
-                                                {% filter escape %}{{ msg.data }}{% endfilter %}
-                                            {% endif %}
-                                            {% if msg.caption is not none %}
-                                                {{ msg.caption | urlize(none, true, '_blank') }}
-                                            {% endif %}
-                                        {% endif %}
-                                    {% endif %}
-                                </p>
-                                <div class="flex items-baseline text-[10px] text-[#667781] mt-1 gap-2">
-                                    <span class="flex-shrink-0">
-                                        {% if msg.sender is not none %}
-                                        {{ msg.sender }}
-                                        {% endif %}
-                                    </span>
-                                    <span class="flex-grow min-w-[4px]"></span>
-                                    <span class="flex-shrink-0">{{ msg.time }}</span>
+                                        <div class="flex items-baseline text-[10px] text-[#667781] mt-1 gap-2">
+                                            <span class="flex-shrink-0">
+                                                {% if msg.sender is not none %}
+                                                    {{ msg.sender }}
+                                                {% endif %}
+                                            </span>
+                                            <span class="flex-grow min-w-[4px]"></span>
+                                            <span class="flex-shrink-0">{{ msg.time }}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                            {% endif %}
                         {% endif %}
                     {% endfor %}
                 </div>
@@ -405,41 +499,41 @@
     </script>
     <script>
     document.addEventListener("DOMContentLoaded", function() {
-    var lazyVideos = [].slice.call(document.querySelectorAll("video.lazy"));
+        var lazyVideos = [].slice.call(document.querySelectorAll("video.lazy"));
 
-    if ("IntersectionObserver" in window) {
-        var lazyVideoObserver = new IntersectionObserver(function(entries, observer) {
-        entries.forEach(function(video) {
-            if (video.isIntersecting) {
-            for (var source in video.target.children) {
-                var videoSource = video.target.children[source];
-                if (typeof videoSource.tagName === "string" && videoSource.tagName === "SOURCE") {
-                videoSource.src = videoSource.dataset.src;
-                }
-            }
+        if ("IntersectionObserver" in window) {
+            var lazyVideoObserver = new IntersectionObserver(function(entries, observer) {
+                entries.forEach(function(video) {
+                    if (video.isIntersecting) {
+                        for (var source in video.target.children) {
+                            var videoSource = video.target.children[source];
+                            if (typeof videoSource.tagName === "string" && videoSource.tagName === "SOURCE") {
+                                videoSource.src = videoSource.dataset.src;
+                            }
+                        }
 
-            video.target.load();
-            video.target.classList.remove("lazy");
-            lazyVideoObserver.unobserve(video.target);
-            }
-        });
-        });
+                        video.target.load();
+                        video.target.classList.remove("lazy");
+                        lazyVideoObserver.unobserve(video.target);
+                    }
+                });
+            });
 
-        lazyVideos.forEach(function(lazyVideo) {
-        lazyVideoObserver.observe(lazyVideo);
-        });
-    }
+            lazyVideos.forEach(function(lazyVideo) {
+                lazyVideoObserver.observe(lazyVideo);
+            });
+        }
     });
     </script>
     <script>   
     // Prevent the <base> tag from affecting links with the class "no-base"
     document.querySelectorAll('.no-base').forEach(link => {
         link.addEventListener('click', function(event) {
-        const href = this.getAttribute('href');
-        if (href.startsWith('#')) {
-            window.location.hash = href;
-            event.preventDefault();
-        }
+            const href = this.getAttribute('href');
+            if (href.startsWith('#')) {
+                window.location.hash = href;
+                event.preventDefault();
+            }
         });
     });
     </script>

@@ -494,13 +494,16 @@ def media(db, data, media_folder, filter_date, filter_chat, filter_empty, output
     mime = MimeTypes()
     
     # Ensure thumbnails directory exists
-    current_chat = data.get_chat(content["key_remote_jid"])
-    message = current_chat.get_message(content["message_row_id"])
-    chat_display_name = slugify(current_chat.name or message.sender 
-                            or content["key_remote_jid"].split('@')[0], True)
-    global_vars['var_display_name'] = chat_display_name
-    Path(f"{output}/Media_Files-{global_vars['var_display_name']}/thumbnails").mkdir(parents=True, exist_ok=True)
-    
+    try:
+        current_chat = data.get_chat(content["key_remote_jid"])
+        message = current_chat.get_message(content["message_row_id"])
+        chat_display_name = slugify(current_chat.name or message.sender 
+                                or content["key_remote_jid"].split('@')[0], True)
+        global_vars['var_display_name'] = chat_display_name
+        Path(f"{output}/Media_Files-{global_vars['var_display_name']}/thumbnails").mkdir(parents=True, exist_ok=True)
+    except:
+        return None
+
     i = 0
     while content is not None:
         _process_single_media(data, content, output, media_folder, mime, separate_media)
@@ -683,6 +686,8 @@ def vcard(db, data, output, media_folder, filter_date, filter_chat, filter_empty
     
     # Create vCards directory if it doesn't exist
     path = os.path.join(output, f"Media_Files-{global_vars['var_display_name']}", "vCards")
+    if global_vars['var_display_name'] == "placeholder":
+        return None
     Path(path).mkdir(parents=True, exist_ok=True)
     
     for index, row in enumerate(rows):
